@@ -2,6 +2,13 @@
 Common Base classes, Definitions and Ancestors.
 """
 
+TERMINAL_REQUIRED_STATUSES = [
+    0x01, 0x02, 0x03, 0x07,
+    0x08, 0x09, 0x0A, 0x0C, 0x0D, 0x0E, 0x10, 0x12, 0x13, 0x14, 0x15, 0x17, 0x18,
+    0x19, 0x1B, 0x1C, 0x1D, 0x43, 0x47, 0x48, 0x49, 0x4C, 0x4D, 0x4E, 0x50, 0x52,
+    0x53, 0x55, 0x57, 0x58, 0x59, 0x5B, 0x5C, 0x5D
+]
+
 INTERMEDIATE_STATUS_CODES = {
     0x00: 'PT is waiting for amount - confirmation',
     0x01: 'please watch PIN - Pad',
@@ -42,7 +49,7 @@ INTERMEDIATE_STATUS_CODES = {
     0x45: 'PT is sending auto - reversal  please remove card !',
     0x46: 'PT is sending post - booking  please remove card !',
     0x47: 'card not admitted  please remove card !',
-    0x48: 'card unknown / undefined  please remove card !',
+    0x48: 'Card unknown / undefined  please remove card !',
     0x49: 'expired card please remove card !',
     0x4A: '',
     0x4B: 'please remove card !',
@@ -50,7 +57,7 @@ INTERMEDIATE_STATUS_CODES = {
     0x4D: 'processing error please remove card !',
     0x4E: 'please wait... please remove card !',
     0x4F: 'PT is commencing an automatic end - of - day batch please remove '
-    'card !',
+          'card !',
     0x50: 'invalid card please remove card !',
     0x51: 'balance display  please remove card !',
     0x52: 'system malfunction please remove card !',
@@ -67,7 +74,7 @@ INTERMEDIATE_STATUS_CODES = {
     0x5D: 'declined please remove card !',
     0x66: 'PT is waiting for input of the mobil - number please remove card !',
     0x67: 'PT is waiting for repeat of the mobil - number please remove '
-    'card !',
+          'card !',
     0xC7: 'PT is waiting for input of the mileage',
     0xC8: 'PT is waiting for cashier',
     0xC9: 'PT is commencing an automatic diagnosis',
@@ -110,7 +117,7 @@ ERRORCODES = {
     0x79: 'card not yet valid',
     0x7A: 'card unknown',
     0x7D: 'communication error (communication module does not answer or is '
-    'not present)',
+          'not present)',
     0x83: 'function not possible',
     0x85: 'key missing',
     0x89: 'PIN-pad defective',
@@ -187,10 +194,9 @@ TERMINAL_STATUS_CODES = {
     0xE3: 'shutter closed',
     0xF6: 'OPT-data not availble (= OPT-Personalisation required)'}
 
-
 DEBUG_PACKET_NAME = {
     (0x0F, None): 'RFU for proprietary applications, the utilisation for '
-    'particular cases should be clarified between manufacturers',
+                  'particular cases should be clarified between manufacturers',
     (0x01, 0x01): 'RFU',
     (0x04, 0x01): 'Set Date and Time in ECR',
     (0x04, 0x0E): 'Menu-Request',
@@ -229,13 +235,13 @@ DEBUG_PACKET_NAME = {
     (0x06, 0x79): 'Selftest',
     (0x06, 0x82): 'RFU',
     (0x06, 0x85): 'Display Text (only included for downwards-compatibility, '
-    'for new implementations use 06 E0)',
+                  'for new implementations use 06 E0)',
     (0x06, 0x86): 'Display Text with Numerical Input (only included for '
-        'downwards-compatibility, for new implementations use 06 E2)',
+                  'downwards-compatibility, for new implementations use 06 E2)',
     (0x06, 0x87): 'PIN-Verification for Customer-Card (only included for '
-    'downwards-compatibility, for new implementations use 06 E3)',
+                  'downwards-compatibility, for new implementations use 06 E3)',
     (0x06, 0x88): 'Display Text with Function-Key Input (only included for '
-        'downwards-compatibility, for new implementations use 06 E1)',
+                  'downwards-compatibility, for new implementations use 06 E1)',
     (0x06, 0x90): 'RFU',
     (0x06, 0x91): 'Set Date and Time in PT',
     (0x06, 0x93): 'Initialisation',

@@ -42,14 +42,15 @@ class Transmission(object):
         """A shortcut for calling the handle_response of the packet."""
         return packet.handle_response(response, self)
 
-    def _transmit(self, packet, history):
+    def _transmit(self, packet, history, cancel):
         """
         Transmit the packet, go into slave mode and wait until the whole
         sequence is finished.
         """
-        if not self.is_master or self.is_waiting:
-            raise TransmissionException(
-                'Can\'t send until transmisson is ready')
+        if not cancel:
+            if not self.is_master or self.is_waiting:
+                raise TransmissionException(
+                    'Can\'t send until transmisson is ready')
         self.is_master = False
         self.last = packet
         try:
@@ -85,11 +86,11 @@ class Transmission(object):
         self.is_master = True
         return TRANSMIT_OK
 
-    def transmit(self, packet, history=None):
+    def transmit(self, packet, history=None, cancel=False):
         # we create a new history:
         self.last_history = history or []
         try:
-            ret = self._transmit(packet, self.last_history)
+            ret = self._transmit(packet, self.last_history, cancel)
             self.history += self.last_history
             return ret
         except Exception:
