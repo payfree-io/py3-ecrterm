@@ -86,7 +86,7 @@ class Transmission(object):
         self.is_master = True
         return TRANSMIT_OK
 
-    def transmit(self, packet, history=None, cancel=False):
+    def transmit(self, packet, cancel, history=None):
         # we create a new history:
         self.last_history = history or []
         try:
