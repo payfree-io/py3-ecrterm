@@ -42,15 +42,15 @@ class Transmission(object):
         """A shortcut for calling the handle_response of the packet."""
         return packet.handle_response(response, self)
 
-    def _transmit(self, packet, history, cancel):
+    def _transmit(self, packet, history):
         """
         Transmit the packet, go into slave mode and wait until the whole
         sequence is finished.
         """
-        if not cancel:
-            if not self.is_master or self.is_waiting:
-                raise TransmissionException(
-                    'Can\'t send until transmisson is ready')
+
+        if not self.is_master or self.is_waiting:
+            raise TransmissionException(
+                'Can\'t send until transmisson is ready')
         self.is_master = False
         self.last = packet
         try:
@@ -86,13 +86,54 @@ class Transmission(object):
         self.is_master = True
         return TRANSMIT_OK
 
-    def transmit(self, packet, cancel, history=None):
+    def transmit(self, packet, history=None):
         # we create a new history:
         self.last_history = history or []
         try:
-            ret = self._transmit(packet, self.last_history, cancel)
+            ret = self._transmit(packet, self.last_history)
             self.history += self.last_history
             return ret
         except Exception:
             self.history += self.last_history
             raise
+
+    def abort(self, packet, history):
+        """
+        Transmit the packet, go into slave mode and wait until the whole
+        sequence is finished.
+        """
+        self.is_master = False
+        self.last = packet
+        try:
+            history += [(False, packet)]
+            success, response = self.transport.send(packet)
+            history += [(True, response)]
+            # we sent the packet.
+            # now lets wait until we get master back.
+            while not self.is_master:
+                self.is_master = self.handle_packet_response(
+                    self.last, response)
+                if self.is_master:
+                    break
+                try:
+                    success, response = self.transport.receive(
+                        self.actual_timeout)
+                    history += [(True, response)]
+                except TransportLayerException:
+                    # some kind of timeout.
+                    # if we are already master, we can bravely ignore this.
+                    if self.is_master:
+                        return TRANSMIT_OK
+                    raise
+                if self.is_master and success:
+                    # we actually have to handle a last packet
+                    stay_master = self.handle_packet_response(
+                        packet, response)
+                    print('Is Master Read Ahead happened.')
+                    self.is_master = stay_master
+        except Exception:
+            self.is_master = True
+            raise
+        self.is_master = True
+        return TRANSMIT_OK
+

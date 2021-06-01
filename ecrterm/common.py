@@ -9,6 +9,7 @@ TERMINAL_REQUIRED_STATUSES = [
     0x53, 0x55, 0x57, 0x58, 0x59, 0x5B, 0x5C, 0x5D
 ]
 
+
 INTERMEDIATE_STATUS_CODES = {
     0x00: 'PT is waiting for amount - confirmation',
     0x01: 'Please watch PIN - Pad',

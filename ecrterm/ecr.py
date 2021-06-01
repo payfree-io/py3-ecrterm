@@ -321,7 +321,7 @@ class ECR(object):
         if self.transport.insert_delays:
             # we actually make a small sleep, allowing better flow.
             sleep(0.2)
-        transmission = self.transmit(AbortCommand(), cancel=True)
+        transmission = self.transmitter.abort(AbortCommand(), None)
         return transmission
 
     def show_text(self, lines=None, duration=5, beeps=0):
@@ -369,7 +369,7 @@ class ECR(object):
             # no completion means some error.
         return False
 
-    def transmit(self, packet, cancel=False):
+    def transmit(self, packet):
         """
         transmits a packet, therefore introducing the protocol cascade.
         rewrite this function if you want packets be routed anywhere
@@ -380,8 +380,10 @@ class ECR(object):
         if self.transport.insert_delays:
             # we actually make a small sleep, allowing better flow.
             sleep(0.2)
-        transmission = self.transmitter.transmit(packet, cancel)
+        transmission = self.transmitter.transmit(packet)
         return transmission
+
+
 
     # dev functions.
     #########################################################################
