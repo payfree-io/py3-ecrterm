@@ -97,6 +97,59 @@ class Transmission(object):
             self.history += self.last_history
             raise
 
+    def transmit1(self, packet, history=None):
+        # we create a new history:
+        self.last_history = history or []
+        try:
+            ret = self._transmit1(packet, self.last_history)
+            self.history += self.last_history
+            return ret
+        except Exception:
+            self.history += self.last_history
+            raise
+
+    def _transmit1(self, packet, history):
+        """
+        Transmit the packet, go into slave mode and wait until the whole
+        sequence is finished.
+        """
+        # self.is_master = False
+        self.last = packet
+        try:
+            history += [(False, packet)]
+            success, response = self.transport.send(packet)
+            history += [(True, response)]
+            # we sent the packet.
+            # now lets wait until we get master back.
+            print('MASTER', self.is_master)
+            while not self.is_master:
+                print('LOOP')
+                self.is_master = self.handle_packet_response(
+                    self.last, response)
+                if self.is_master:
+                    break
+                try:
+                    success, response = self.transport.receive(
+                        self.actual_timeout)
+                    history += [(True, response)]
+                except TransportLayerException:
+                    # some kind of timeout.
+                    # if we are already master, we can bravely ignore this.
+                    if self.is_master:
+                        return TRANSMIT_OK
+                    raise
+                if self.is_master and success:
+                    # we actually have to handle a last packet
+                    stay_master = self.handle_packet_response(
+                        packet, response)
+                    print('Is Master Read Ahead happened.')
+                    self.is_master = stay_master
+        except Exception:
+            self.is_master = True
+            raise
+        self.is_master = True
+        return TRANSMIT_OK
+
     def abort(self, packet, history):
         """
         Transmit the packet, go into slave mode and wait until the whole

@@ -324,6 +324,19 @@ class ECR(object):
         transmission = self.transmitter.abort(AbortCommand(), None)
         return transmission
 
+    def transmit1(self):
+        """
+        transmits a packet, therefore introducing the protocol cascade.
+        rewrite this function if you want packets be routed anywhere
+        since the whole ECR Object uses this function to transmit.
+        use `last` property to access last packet transmitted.
+        """
+        if self.transport.insert_delays:
+            # we actually make a small sleep, allowing better flow.
+            sleep(0.2)
+        transmission = self.transmitter.transmit1(AbortCommand())
+        return transmission
+
     def show_text(self, lines=None, duration=5, beeps=0):
         """
         displays a text on the PT screen for duration of seconds.
