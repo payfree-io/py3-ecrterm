@@ -92,7 +92,7 @@ INTERMEDIATE_STATUS_CODES_DE = {
 INTERMEDIATE_STATUS_CODES = {
     0x00: 'PT is waiting for amount - confirmation',
     0x01: 'Please watch PIN - Pad',
-    0x02: 'Please watch PIN - Pads',
+    0x02: 'Please watch PIN - Pad',
     0x03: 'Not accepted',
     0x04: 'PT is waiting for response from FEP',
     0x05: 'PT is sending auto - reversal',
