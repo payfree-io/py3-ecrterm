@@ -321,7 +321,7 @@ class ECR(object):
         if self.transport.insert_delays:
             # we actually make a small sleep, allowing better flow.
             sleep(0.2)
-        transmission = self.transmitter.abort(AbortCommand(), False)
+        transmission = self.transmitter.abort(AbortCommand(), [])
         return transmission
 
     def show_text(self, lines=None, duration=5, beeps=0):
