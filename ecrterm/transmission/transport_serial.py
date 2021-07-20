@@ -6,7 +6,10 @@ The Serial Layer is a transport used for
 @author g4b
 """
 
+from time import time
+
 import serial
+
 from ecrterm.common import Transport, noop
 from ecrterm.conv import bs2hl, hl2bs, toBytes, toHexString
 from ecrterm.crc import crc_xmodem16
@@ -15,8 +18,8 @@ from ecrterm.exceptions import (
 from ecrterm.packets.apdu import APDUPacket
 from ecrterm.transmission.signals import (
     ACK, DLE, ETX, NAK, STX, TIMEOUT_T1, TIMEOUT_T2)
+from ecrterm.transmission.transport_threat import LineReader, ReaderThread
 from ecrterm.utils import ensure_bytes, is_stringlike
-from time import time
 
 SERIAL_DEBUG = False
 
@@ -62,6 +65,7 @@ class SerialMessage(object):
 
     def _get_crc_h(self):
         return (self._get_crc() & 0xFF00) >> 8
+
     crc_l = property(_get_crc_l)
     crc_h = property(_get_crc_h)
 
@@ -107,6 +111,7 @@ class SerialTransport(Transport):
         self.connection = None
 
     def connect(self, timeout=30):
+        import traceback
         ser = self.SerialCls(
             port=self.device, baudrate=9600, parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_TWO, bytesize=serial.EIGHTBITS,
@@ -114,6 +119,25 @@ class SerialTransport(Transport):
             xonxoff=0,  # disable software flow control
             rtscts=0,  # disable RTS/CTS flow control
         )
+
+        class PrintLines(LineReader):
+            def connection_made(self, transport):
+                super(PrintLines, self).connection_made(transport)
+                print('port opened\n')
+                self.write_line('hello world')
+
+            def handle_line(self, data):
+                print('line received: {!r}\n'.format(data))
+
+            def connection_lost(self, exc):
+                if exc:
+                    traceback.print_exc(exc)
+                print('port closed\n')
+
+        t = ReaderThread(ser, PrintLines)
+        t.start()
+        transport, protocol = t.connect()
+
         if not ser.isOpen():
             ser.open()
         # 8< got that from somwhere, not sure what it does:
@@ -123,7 +147,7 @@ class SerialTransport(Transport):
         ser.flushOutput()
         # >8
         if ser.isOpen():
-            self.connection = ser
+            self.connection = protocol
             return True
         return False
 
@@ -247,6 +271,8 @@ class SerialTransport(Transport):
         if skip_read is True, it only returns true, you have to read
         yourself.
         """
+        print('WATING', self.connection.in_waiting)
+
         if message:
             self.write(message.as_bin())
             acknowledge = b''
@@ -285,6 +311,7 @@ class SerialTransport(Transport):
 if __name__ == '__main__':
     c = SerialTransport('/dev/ttyUSB0')
     from ecrterm.packets.base_packets import Registration
+
     if c.connect():
         print('connected to usb0')
     else:
