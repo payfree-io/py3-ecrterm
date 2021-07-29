@@ -16,7 +16,7 @@ from ecrterm.exceptions import (
 from ecrterm.packets.apdu import Packets
 from ecrterm.packets.base_packets import (
     Authorisation, Completion, DisplayText, EndOfDay, Packet, PrintLine,
-    Registration, ResetTerminal, StatusEnquiry, StatusInformation, AbortCommand)
+    Registration, ResetTerminal, StatusEnquiry, StatusInformation, AbortCommand, LogOff)
 from ecrterm.packets.bmp import BCD
 from ecrterm.transmission._transmission import Transmission
 from ecrterm.transmission.signals import ACK, DLE, ETX, NAK, STX, TRANSMIT_OK
@@ -181,7 +181,7 @@ class ECR(object):
         if self.password:
             kwargs['password'] = self.password
         if config_byte is not None:
-            kwargs['config_byte'] = config_byte
+            kwargs['config_byte'] = Registration.generate_config(config_byte)
 
         ret = self.transmit(Registration(**kwargs))
 
@@ -209,6 +209,11 @@ class ECR(object):
         if ret == TRANSMIT_OK:
             self._state_registered = True
         return ret
+
+    def logout(self):
+        """Logout the PT."""
+        self._state_registered = False
+        return self.transmit(LogOff())
 
     def _end_of_day_info_packet(self, history=None):
         """
