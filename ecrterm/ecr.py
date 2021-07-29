@@ -163,6 +163,7 @@ class ECR(object):
         if self.transport.connect():
             self.transmitter = Transmission(self.transport)
             self._state_connected = True
+            self.register()
         else:
             raise TransportConnectionFailed('ECR could not connect.')
 
@@ -172,12 +173,20 @@ class ECR(object):
     # !: Last is a short access for transmitter.last if possible.
     last = property(__get_last)
 
-    def register(self, config_byte, **kwargs):
+    def register(self):
         """
         registers this ECR at the PT, locking menus
         for real world conditions.
         """
-        kwargs = dict(kwargs)
+        config_byte = dict(
+            ecr_prints_receipt=False,
+            ecr_prints_admin_receipt=False,
+            ecr_intermediate_status=True,
+            ecr_controls_admin=True,
+            ecr_controls_payment=True
+        )
+
+        kwargs = dict()
         if self.password:
             kwargs['password'] = self.password
         if config_byte is not None:
