@@ -290,6 +290,16 @@ class ECR(object):
         canceled.
         throws exceptions.
         """
+
+        """
+        type: 
+        4   =   ELV or EuroELV, if only EuroELV is supported by PT
+        20 =  Geldkarte
+        36 =   Online without PIN (OLV or EuroELV, if only EuroELV is supported by PT)
+        52 =   Girocard transaction according to TA7.0 rules for TA 7.0 capable PTs
+        68 =  Payment according to PTs decision excluding GeldKarte
+        84 =  Payment according to PTs decision including GeldKarte
+        """
         packet = Authorisation(
             amount=amount_cent,  # in cents.
             currency_code=978,  # euro, only one that works, can be skipped.
