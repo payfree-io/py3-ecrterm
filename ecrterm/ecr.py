@@ -163,7 +163,7 @@ class ECR(object):
         if self.transport.connect():
             self.transmitter = Transmission(self.transport)
             self._state_connected = True
-            self.register()
+            # self.register()
         else:
             raise TransportConnectionFailed('ECR could not connect.')
 
@@ -345,6 +345,7 @@ class ECR(object):
         if self.transport.insert_delays:
             # we actually make a small sleep, allowing better flow.
             sleep(0.2)
+        sleep(1)
         transmission = self.transmitter.abort(AbortCommand(), [])
         return transmission
 
