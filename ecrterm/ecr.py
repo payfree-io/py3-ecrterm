@@ -170,6 +170,7 @@ class ECR(object):
     def __get_last(self):
         if self.transmitter is not None:
             return self.transmitter.last
+
     # !: Last is a short access for transmitter.last if possible.
     last = property(__get_last)
 
@@ -199,7 +200,7 @@ class ECR(object):
             for inc, packet in self.transmitter.last_history:
                 if inc and isinstance(packet, Completion):
                     if 'tid' in packet.bitmaps_as_dict().keys():
-                        self.terminal_id = packet.bitmaps_as_dict()\
+                        self.terminal_id = packet.bitmaps_as_dict() \
                             .get('tid', BCD(0)).value()
             # remember this.
             self._state_registered = True
@@ -214,7 +215,7 @@ class ECR(object):
             Registration(
                 password=self.password,
                 config_byte=Registration.generate_config(
-                    ecr_controls_admin=False),))
+                    ecr_controls_admin=False), ))
         if ret == TRANSMIT_OK:
             self._state_registered = True
         return ret
@@ -223,6 +224,12 @@ class ECR(object):
         """Logout the PT."""
         self._state_registered = False
         return self.transmit(LogOff())
+
+    def reconnect(self):
+        try:
+            return self.transport.connect()
+        except Exception as e:
+            return e
 
     def _end_of_day_info_packet(self, history=None):
         """
@@ -407,8 +414,6 @@ class ECR(object):
             sleep(0.2)
         transmission = self.transmitter.transmit(packet)
         return transmission
-
-
 
     # dev functions.
     #########################################################################
