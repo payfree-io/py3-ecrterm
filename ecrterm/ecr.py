@@ -16,7 +16,8 @@ from ecrterm.exceptions import (
 from ecrterm.packets.base_packets import (
     Authorisation, CloseCardSession, Completion, DisplayText, EndOfDay, Packet,
     PrintLine, ReadCard, Registration, ReservationBooking, ReservationRequest,
-    ResetTerminal, StatusEnquiry, StatusInformation, WriteFiles)
+    ResetTerminal, StatusEnquiry, StatusInformation, WriteFiles, AbortCommand)
+from ecrterm.packets.tlv import TLV
 from ecrterm.packets.types import ConfigByte
 from ecrterm.transmission._transmission import Transmission
 from ecrterm.transmission.signals import ACK, DLE, ETX, NAK, STX, TRANSMIT_OK
@@ -224,17 +225,22 @@ class ECR(object):
                 printout += [packet.fixed_values['text']]
         return printout
 
-    def payment(self, amount_cent=50, listener=None):
+    def payment(self, amount_cent=50, reference_number=None, listener=None):
         """
         executes a payment in amount of cents.
         @returns: True, if payment went through, or False if it was
         canceled.
         throws exceptions.
         """
+        t1 = []
+        if reference_number:
+            num = bytes(reference_number, encoding='utf-8')
+            t1 = TLV(xe9={'x1f63': num})
+
         packet = Authorisation(
             amount=amount_cent,  # in cents.
             currency_code=978,  # euro, only one that works, can be skipped.
-            tlv=[],
+            tlv=t1,
         )
         if listener:
             packet.register_response_listener(listener)
@@ -269,6 +275,17 @@ class ECR(object):
         if self.transport.insert_delays:
             sleep(1)
         return ret
+
+    def cancel_transaction(self):
+        """
+        Cancel transaction during the process
+        """
+        if self.transport.insert_delays:
+            # we actually make a small sleep, allowing better flow.
+            sleep(0.2)
+        sleep(4)
+        transmission = self.transmitter.abort(AbortCommand(), [])
+        return transmission
 
     def show_text(self, lines=None, duration=5, beeps=0):
         """
