@@ -276,6 +276,13 @@ class ECR(object):
             sleep(1)
         return ret
 
+
+    def reconnect(self):
+        try:
+            return self.transport.connect()
+        except Exception as e:
+            return e
+
     def cancel_transaction(self):
         """
         Cancel transaction during the process
