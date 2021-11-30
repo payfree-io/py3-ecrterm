@@ -48,7 +48,7 @@ class SocketTransport(Transport):
     insert_delays = False
     defaults = dict(
         connect_timeout=5, so_keepalive=0, tcp_keepidle=1, tcp_keepintvl=3,
-        tcp_keepcnt=5, debug='false', packetdebug='false')
+        tcp_keepcnt=5, debug='false', packetdebug='true')
 
     def __init__(self, uri: str):
         """Setup the IP and Port."""
