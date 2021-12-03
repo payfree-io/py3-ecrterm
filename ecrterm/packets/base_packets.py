@@ -332,24 +332,6 @@ class IntermediateStatusInformation(Packet):
 
     fixed_arguments = ['intermediate_status']
 
-    def consume_fixed(self, data, length):
-        """
-        Status has 1 byte encoding the status.
-        """
-        if length:
-            self.fixed_values['intermediate_status'] = data[0]
-            data = data[1:]
-            if length > 1:
-                self.fixed_values['time_out'] = data[0]  # bcd.
-                data = data[1:]  # can be tlv.
-        return data
-
-    def __repr__(self):
-        return 'IntermediateStatus{04 FF}: %s' % (
-            INTERMEDIATE_STATUS_CODES.get(
-                self.fixed_values.get('intermediate_status', None),
-                'No status'))
-
 
 class PacketReceived(Packet):
     """
