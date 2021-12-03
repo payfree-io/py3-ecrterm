@@ -291,7 +291,7 @@ class ECR(object):
             # we actually make a small sleep, allowing better flow.
             sleep(0.2)
         sleep(4)
-        transmission = self.transmitter.abort(AbortCommand(), [])
+        transmission = self.transmitter.transmit_cancel(AbortCommand())
         return transmission
 
     def show_text(self, lines=None, duration=5, beeps=0):

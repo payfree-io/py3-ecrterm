@@ -105,7 +105,18 @@ class Transmission(object):
             self.history += self.last_history
             raise
 
-    def abort(self, packet, history):
+    def transmit_cancel(self, packet, history=None):
+        # we create a new history:
+        self.last_history = history or []
+        try:
+            ret = self._abort(packet, self.last_history)
+            self.history += self.last_history
+            return ret
+        except Exception:
+            self.history += self.last_history
+            raise
+
+    def _abort(self, packet, history):
         """
         Transmit the packet, go into slave mode and wait until the whole
         sequence is finished.
