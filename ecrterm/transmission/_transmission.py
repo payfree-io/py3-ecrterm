@@ -121,11 +121,15 @@ class Transmission(object):
         Transmit the packet, go into slave mode and wait until the whole
         sequence is finished.
         """
+
         self.is_master = False
         self.last = packet
         try:
             history += [(False, packet)]
-            success, response = self.transport.send(packet)
+            logger.debug("> %r", packet)
+            success, response = self.transport.send(packet.serialize())
+            response = Packet.parse(response)
+            logger.debug("< %r", response)
             history += [(True, response)]
             # we sent the packet.
             # now lets wait until we get master back.
@@ -137,6 +141,8 @@ class Transmission(object):
                 try:
                     success, response = self.transport.receive(
                         self.actual_timeout)
+                    response = Packet.parse(response)
+                    logger.debug("< %r", response)
                     history += [(True, response)]
                 except TransportLayerException:
                     # some kind of timeout.
@@ -148,9 +154,9 @@ class Transmission(object):
                     # we actually have to handle a last packet
                     stay_master = self.handle_packet_response(
                         packet, response)
-                    print('Is Master Read Ahead happened.')
+                    logger.warning('Is Master Read Ahead happened.')
                     self.is_master = stay_master
-        except Exception:
+        except Exception as e:
             self.is_master = True
             raise
         self.is_master = True
