@@ -2,6 +2,8 @@
 Common Base classes, Definitions and Ancestors.
 """
 
+from typing import Tuple
+
 TERMINAL_REQUIRED_STATUSES = [
     0x01, 0x02, 0x03, 0x07,
     0x08, 0x09, 0x0A, 0x0C, 0x0D, 0x0E, 0x10, 0x12, 0x13, 0x14, 0x15, 0x17, 0x18,
@@ -274,6 +276,7 @@ TERMINAL_STATUS_CODES = {
     0xE3: 'shutter closed',
     0xF6: 'OPT-data not availble (= OPT-Personalisation required)'}
 
+
 DEBUG_PACKET_NAME = {
     (0x0F, None): 'RFU for proprietary applications, the utilisation for '
                   'particular cases should be clarified between manufacturers',
@@ -315,13 +318,13 @@ DEBUG_PACKET_NAME = {
     (0x06, 0x79): 'Selftest',
     (0x06, 0x82): 'RFU',
     (0x06, 0x85): 'Display Text (only included for downwards-compatibility, '
-                  'for new implementations use 06 E0)',
+    'for new implementations use 06 E0)',
     (0x06, 0x86): 'Display Text with Numerical Input (only included for '
-                  'downwards-compatibility, for new implementations use 06 E2)',
+        'downwards-compatibility, for new implementations use 06 E2)',
     (0x06, 0x87): 'PIN-Verification for Customer-Card (only included for '
-                  'downwards-compatibility, for new implementations use 06 E3)',
+    'downwards-compatibility, for new implementations use 06 E3)',
     (0x06, 0x88): 'Display Text with Function-Key Input (only included for '
-                  'downwards-compatibility, for new implementations use 06 E1)',
+        'downwards-compatibility, for new implementations use 06 E1)',
     (0x06, 0x90): 'RFU',
     (0x06, 0x91): 'Set Date and Time in PT',
     (0x06, 0x93): 'Initialisation',
@@ -362,18 +365,7 @@ DEBUG_PACKET_NAME = {
 }
 
 
-def noop(*args, **kwargs):
-    pass
-
-
-class Logling(object):
-    """A simple log interface."""
-
-    def log(self, *args, **kwargs):
-        print(" ".join(args))
-
-
-class Dumpling(object):
+class Dumpling:
     """
     Interface, which defines that this object can
       - dump itself into a list of bytes
@@ -396,7 +388,7 @@ class Dumpling(object):
         return len(self.dump())
 
 
-class Transport(Logling):
+class Transport:
     insert_delays = False
 
     def connect(self, *args, **kwargs):
@@ -404,8 +396,8 @@ class Transport(Logling):
         connect to transport.
         """
 
-    def receive(self, timeout=None, *args, **kwargs):
+    def receive(self, timeout=None, *args, **kwargs) -> Tuple[bool, bytes]:
         """Receive data."""
 
-    def send(self, message, *args, **kwargs):
+    def send(self, message: bytes, *args, **kwargs):
         """Send data."""

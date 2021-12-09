@@ -6,31 +6,26 @@ Maybe create a small console program which allows us to:
 - see the representation of the packet
 - ability for incoming and outgoing
 """
-from logging import error
+import logging
 from time import sleep
 
 from ecrterm.common import TERMINAL_STATUS_CODES
-from ecrterm.conv import bs2hl, toBytes, toHexString
+from ecrterm.conv import toBytes
 from ecrterm.exceptions import (
     TransportConnectionFailed, TransportLayerException)
-from ecrterm.packets.apdu import Packets
 from ecrterm.packets.base_packets import (
-    Authorisation, Completion, DisplayText, EndOfDay, Packet, PrintLine,
-    Registration, ResetTerminal, StatusEnquiry, StatusInformation, AbortCommand, LogOff)
-from ecrterm.packets.bmp import BCD
+    Authorisation, CloseCardSession, Completion, DisplayText, EndOfDay, Packet,
+    PrintLine, ReadCard, Registration, ReservationBooking, ReservationRequest,
+    ResetTerminal, StatusEnquiry, StatusInformation, WriteFiles, AbortCommand)
+from ecrterm.packets.tlv import TLV
+from ecrterm.packets.types import ConfigByte
 from ecrterm.transmission._transmission import Transmission
 from ecrterm.transmission.signals import ACK, DLE, ETX, NAK, STX, TRANSMIT_OK
 from ecrterm.transmission.transport_serial import SerialTransport
 from ecrterm.transmission.transport_socket import SocketTransport
 from ecrterm.utils import detect_pt_serial, is_stringlike
 
-
-class A(object):
-    def write(self, *args, **kwargs):
-        pass
-
-
-_logfile = A()
+logger = logging.getLogger('ecrterm.ecr')
 
 
 def dismantle_serial_packet(data):
@@ -96,34 +91,6 @@ def parse_represented_data(data):
     return p
 
 
-def ecr_log(data, incoming=False):
-    try:
-        if incoming:
-            incoming = '<'
-        else:
-            incoming = '>'
-        if is_stringlike(data):
-            data = bs2hl(data)
-        # logit to the logfile
-        try:
-            _logfile.write('%s %s\n' % (incoming, toHexString(data)))
-        except Exception:
-            pass
-        try:
-            data = repr(parse_represented_data(data))
-            _logfile.write('= %s\n' % data)
-        except Exception as e:
-            print('DEBUG: Cannot be represented: %s' % data)
-            print(e)
-            _logfile.write('? did not understand ?\n')
-            data = toHexString(data)
-        print('%s %s' % (incoming, data))
-    except Exception:
-        import traceback
-        traceback.print_exc()
-        print('| error in log')
-
-
 class ECR(object):
     transmitter = None
     transport = None
@@ -149,8 +116,7 @@ class ECR(object):
             self.transport = SerialTransport(device)
         elif device.startswith('socket://'):
             self.transport = SocketTransport(uri=device)
-        # This turns on debug logging
-        # self.transport.slog = ecr_log
+
         self.daylog = []
         self.daylog_template = ''
         self.history = []
@@ -163,35 +129,25 @@ class ECR(object):
         if self.transport.connect():
             self.transmitter = Transmission(self.transport)
             self._state_connected = True
-            # self.register()
         else:
             raise TransportConnectionFailed('ECR could not connect.')
 
     def __get_last(self):
         if self.transmitter is not None:
             return self.transmitter.last
-
     # !: Last is a short access for transmitter.last if possible.
     last = property(__get_last)
 
-    def register(self):
+    def register(self, config_byte, **kwargs):
         """
         registers this ECR at the PT, locking menus
         for real world conditions.
         """
-        config_byte = dict(
-            ecr_prints_receipt=False,
-            ecr_prints_admin_receipt=False,
-            ecr_intermediate_status=True,
-            ecr_controls_admin=True,
-            ecr_controls_payment=True
-        )
-
-        kwargs = dict()
+        kwargs = dict(kwargs)
         if self.password:
             kwargs['password'] = self.password
         if config_byte is not None:
-            kwargs['config_byte'] = Registration.generate_config(config_byte)
+            kwargs['config_byte'] = config_byte
 
         ret = self.transmit(Registration(**kwargs))
 
@@ -199,9 +155,7 @@ class ECR(object):
             # get the terminal-id if its there.
             for inc, packet in self.transmitter.last_history:
                 if inc and isinstance(packet, Completion):
-                    if 'tid' in packet.bitmaps_as_dict().keys():
-                        self.terminal_id = packet.bitmaps_as_dict() \
-                            .get('tid', BCD(0)).value()
+                    self.terminal_id = packet.as_dict().get('tid', '00'*4)
             # remember this.
             self._state_registered = True
         return ret
@@ -211,25 +165,8 @@ class ECR(object):
         registers to the PT, not locking the master menu on it.
         do not use in production environment.
         """
-        ret = self.transmit(
-            Registration(
-                password=self.password,
-                config_byte=Registration.generate_config(
-                    ecr_controls_admin=False), ))
-        if ret == TRANSMIT_OK:
-            self._state_registered = True
-        return ret
-
-    def logout(self):
-        """Logout the PT."""
-        self._state_registered = False
-        return self.transmit(LogOff())
-
-    def reconnect(self):
-        try:
-            return self.transport.connect()
-        except Exception as e:
-            return e
+        return self.register(password=self.password,
+                             config_byte=ConfigByte.DEFAULT & ~ConfigByte.ECR_CONTROLS_ADMIN)
 
     def _end_of_day_info_packet(self, history=None):
         """
@@ -272,9 +209,7 @@ class ECR(object):
             try:
                 self.daylog = (self.daylog_template % eod_info).split('\n')
             except Exception:
-                import traceback
-                traceback.print_exc()
-                error('Error in Daylog Template')
+                logger.exception("Error in daylog template")
         return result
 
     def last_printout(self):
@@ -290,26 +225,22 @@ class ECR(object):
                 printout += [packet.fixed_values['text']]
         return printout
 
-    def payment(self, amount_cent=50, listener=None):
+    def payment(self, amount_cent=50, reference_number=None, listener=None):
         """
         executes a payment in amount of cents.
         @returns: True, if payment went through, or False if it was
         canceled.
         throws exceptions.
         """
-
-        """
-        type: 
-        4   =   ELV or EuroELV, if only EuroELV is supported by PT
-        20 =  Geldkarte
-        36 =   Online without PIN (OLV or EuroELV, if only EuroELV is supported by PT)
-        52 =   Girocard transaction according to TA7.0 rules for TA 7.0 capable PTs
-        68 =  Payment according to PTs decision excluding GeldKarte
-        84 =  Payment according to PTs decision including GeldKarte
-        """
+        t1 = []
+        if reference_number:
+            num = bytes(reference_number, encoding='utf-8')
+            t1 = TLV(xe9={'x1f63': num})
+        print("ECR REF NUMBER", reference_number)
         packet = Authorisation(
             amount=amount_cent,  # in cents.
             currency_code=978,  # euro, only one that works, can be skipped.
+            tlv=t1,
         )
         if listener:
             packet.register_response_listener(listener)
@@ -324,7 +255,7 @@ class ECR(object):
                 return False
         else:
             # @todo: remove this.
-            print('transmit error?')
+            logger.error("transmit error?")
         return False
 
     def restart(self):
@@ -345,6 +276,13 @@ class ECR(object):
             sleep(1)
         return ret
 
+
+    def reconnect(self):
+        try:
+            return self.transport.connect()
+        except Exception as e:
+            return e
+
     def cancel_transaction(self):
         """
         Cancel transaction during the process
@@ -353,7 +291,7 @@ class ECR(object):
             # we actually make a small sleep, allowing better flow.
             sleep(0.2)
         sleep(4)
-        transmission = self.transmitter.abort(AbortCommand(), [])
+        transmission = self.transmitter.transmit_cancel(AbortCommand())
         return transmission
 
     def show_text(self, lines=None, duration=5, beeps=0):
@@ -394,10 +332,8 @@ class ECR(object):
             if isinstance(self.last.completion, Completion):
                 # try to get version
                 if not self.version:
-                    self.version = self.last.completion.fixed_values.get(
-                        'sw-version', None)
-                return self.last.completion.fixed_values.get(
-                    'terminal-status', None)
+                    self.version = self.last.completion.get('sw_version', None)
+                return self.last.completion.status_byte
             # no completion means some error.
         return False
 
@@ -414,6 +350,61 @@ class ECR(object):
             sleep(0.2)
         transmission = self.transmitter.transmit(packet)
         return transmission
+
+    def request_reservation(self, amount_cent=50, listener=None):
+        """
+        executes a reservation request in amount of cents.
+        @returns: True, if reservation went through, or False if it was canceled.
+        throws exceptions.
+        """
+        packet = ReservationRequest(
+            amount=amount_cent,  # in cents.
+            currency_code=978,  # euro, only one that works, can be skipped.
+            tlv=[],
+        )
+        if listener:
+            packet.register_response_listener(listener)
+        code = self.transmit(packet=packet)
+
+        if code == 0:
+            # now check if the packet actually got what it wanted.
+            if self.transmitter.last.completion:
+                if isinstance(self.transmitter.last.completion, Completion):
+                    return True
+            else:
+                return False
+        else:
+            # @todo: remove this.
+            logger.error("transmit error?")
+        return False
+
+    def book_reservation(self, receipt_no, amount_cent=50, listener=None):
+        """
+        executes a reservation booking for receipt with cancel amount in cents.
+        @returns: True, if booking went through, or False if it was canceled.
+        throws exceptions.
+        """
+        packet = ReservationBooking(
+            receipt=receipt_no,
+            amount=amount_cent,
+            currency_code=978,
+            tlv=[],
+        )
+        if listener:
+            packet.register_response_listener(listener)
+        code = self.transmit(packet=packet)
+
+        if code == 0:
+            # now check if the packet actually got what it wanted.
+            if self.transmitter.last.completion:
+                if isinstance(self.transmitter.last.completion, Completion):
+                    return True
+            else:
+                return False
+        else:
+            # @todo: remove this.
+            logger.error("transmit error?")
+        return False
 
     # dev functions.
     #########################################################################
@@ -440,27 +431,13 @@ class ECR(object):
                 ok, message = self.transport.receive(timeout)
                 if ok and message:
                     return message
-            except Exception as e:
-                print(e)
+            except:
+                logger.exception()
                 continue
             print('-mark-')
 
-    def devprint_packets(self):
-        """
-        dev function to execute the script located in base_packets
-        useful to get a list of all parsed packets.
-        """
-        from pprint import pprint
-        pprint(Packets.packets)
-
-    def devprint_bitmaps(self):
-        """
-        dev function to execute the script located in bitmaps
-        useful to get a list of all valid bitmaps.
-        """
-        from pprint import pprint
-        from ecrterm.packets.bitmaps import BITMAPS_ARGS
-        pprint(BITMAPS_ARGS)
+    def write_files(self, password, files):
+        return self.transmit(WriteFiles(password=password, files=files))
 
     def detect_pt(self):
         # note: this only executes utils.detect_pt with the local ecrterm.
@@ -471,13 +448,20 @@ class ECR(object):
     def parse_str(self, s):
         return parse_represented_data(s)
 
+    def read_card(self, timeout=1, read_card_args={}):
+        args = dict(read_card_args)
+        args.setdefault('timeout', timeout)
+        return self.transmit(ReadCard(**args))
+
+    def close_card(self):
+        return self.transmit(CloseCardSession())
+
 
 if __name__ == '__main__':
-    _logfile = open('./terminallog.txt', 'aw')
-    _logfile.write('-MARK-\n')
+    logging.basicConfig(level=9, filename='./terminallog.txt', filemode='aw')
+    logging.info('-MARK-')
     e = ECR()
     # e.end_of_day()
     e.show_text(['Hello world!', 'Testing', 'myself.'], 5, 0)
     print('preparing for payment.')
-    e.get_ready()
     print(e.payment(50))

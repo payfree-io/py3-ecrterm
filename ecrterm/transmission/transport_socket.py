@@ -1,3 +1,5 @@
+import logging
+from functools import partial
 from binascii import hexlify
 from socket import (
     IPPROTO_TCP, SHUT_RDWR, SO_KEEPALIVE, SOL_SOCKET, create_connection)
@@ -7,12 +9,10 @@ from sys import platform
 from typing import Tuple
 from urllib.parse import parse_qs, urlsplit
 
-from ecrterm.common import Transport, noop
-from ecrterm.conv import bs2hl
+from ecrterm.common import Transport
 from ecrterm.exceptions import (
     TransportConnectionFailed, TransportLayerException,
     TransportTimeoutException)
-from ecrterm.packets.apdu import APDUPacket
 from ecrterm.transmission.signals import TIMEOUT_T2
 
 if platform == 'linux':
@@ -23,6 +23,9 @@ try:
     from socket import TCP_KEEPCNT
 except ImportError:
     TCP_KEEPCNT = None
+
+
+logger = logging.getLogger('ecrterm.transport.socket')
 
 
 def hexformat(data: bytes) -> str:
@@ -43,7 +46,6 @@ class SocketTransport(Transport):
     flags details.
     """
     insert_delays = False
-    slog = noop
     defaults = dict(
         connect_timeout=5, so_keepalive=0, tcp_keepidle=1, tcp_keepintvl=3,
         tcp_keepcnt=5, debug='false', packetdebug='false')
@@ -71,11 +73,8 @@ class SocketTransport(Transport):
             'debug', [self.defaults['debug']])[0] == 'true'
         self._packetdebug = qs_parsed.get(
             'packetdebug', [self.defaults['packetdebug']])[0] == 'true'
-        if self._debug:
-            from ecrterm.ecr import ecr_log
-            self.slog = ecr_log
 
-    def connect(self, timeout: int = None) -> bool:
+    def connect(self, timeout: int=None) -> bool:
         """
         Connect to the TCP socket. Return `True` on successful
         connection, `False` on an unsuccessful one.
@@ -101,17 +100,16 @@ class SocketTransport(Transport):
         except (ConnectionError, SocketTimeout) as exc:
             raise TransportConnectionFailed(exc.args[0])
 
-    def send(self, apdu, tries: int = 0, no_wait: bool = False):
+    def send(self, data: bytes, tries: int=0, no_wait: bool=False):
         """Send data."""
-        to_send = bytes(apdu.to_list())
-        self.slog(data=bs2hl(binstring=to_send), incoming=False)
+        logger.debug('>> %s', data.hex())
         total_sent = 0
-        msglen = len(to_send)
+        msglen = len(data)
         while total_sent < msglen:
-            sent = self.sock.send(to_send[total_sent:])
+            sent = self.sock.send(data[total_sent:])
             if self._packetdebug:
                 print('sent', sent, 'bytes of', hexformat(
-                    data=to_send[total_sent:]))
+                    data=data[total_sent:]))
             if sent == 0:
                 raise RuntimeError('Socket connection broken.')
             total_sent += sent
@@ -163,14 +161,14 @@ class SocketTransport(Transport):
         return data + new_data
 
     def receive(
-            self, timeout=None, *args, **kwargs) -> Tuple[bool, APDUPacket]:
+            self, timeout=None, *args, **kwargs) -> Tuple[bool, bytes]:
         """
-        Receive data, return success status and ADPUPacket instance.
+        Receive data, return success status and packet bytes
         """
         self.sock.settimeout(timeout)
         data = self._receive()
-        self.slog(data=bs2hl(binstring=data), incoming=True)
-        return True, APDUPacket.parse(blob=data)
+        logger.debug('<< %s', data.hex())
+        return True, data
 
     def close(self):
         """Shutdown and close the connection."""
