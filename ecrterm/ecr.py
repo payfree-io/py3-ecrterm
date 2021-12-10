@@ -234,7 +234,7 @@ class ECR(object):
         """
         t1 = []
         if reference_number:
-            num = bytes(reference_number, encoding='utf-8')
+            num = bytes("HR="+reference_number, encoding='utf-8')
             t1 = TLV(xe9={'x1f63': num})
         print("ECR REF NUMBER", reference_number)
         packet = Authorisation(
