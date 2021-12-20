@@ -135,6 +135,7 @@ class ECR(object):
     def __get_last(self):
         if self.transmitter is not None:
             return self.transmitter.last
+
     # !: Last is a short access for transmitter.last if possible.
     last = property(__get_last)
 
@@ -155,7 +156,7 @@ class ECR(object):
             # get the terminal-id if its there.
             for inc, packet in self.transmitter.last_history:
                 if inc and isinstance(packet, Completion):
-                    self.terminal_id = packet.as_dict().get('tid', '00'*4)
+                    self.terminal_id = packet.as_dict().get('tid', '00' * 4)
             # remember this.
             self._state_registered = True
         return ret
@@ -234,9 +235,16 @@ class ECR(object):
         """
         t1 = []
         if reference_number:
-            num = bytes("HR="+reference_number, encoding='utf-8')
+            # len_reference_number=str(len(reference_number))
+            # num = bytes("HR=00", encoding='utf-8')+ bytes(len_reference_number, encoding='utf-8')
+            # +bytes(reference_number , encoding='utf-8')
+
+            len_reference_number = len(bytes(reference_number, encoding='utf-8'))
+            len_reference_number_hex = str(len_reference_number).zfill(4)
+            num = bytes("HR=", encoding='utf-8') + bytes.fromhex(len_reference_number_hex) + bytes(reference_number,
+                                                                                                   encoding='utf-8')
             t1 = TLV(xe9={'x1f63': num})
-        print("ECR REF NUMBER", reference_number)
+            print("ECR REF NUMBER", reference_number)
         packet = Authorisation(
             amount=amount_cent,  # in cents.
             currency_code=978,  # euro, only one that works, can be skipped.
@@ -275,7 +283,6 @@ class ECR(object):
         if self.transport.insert_delays:
             sleep(1)
         return ret
-
 
     def reconnect(self):
         try:
