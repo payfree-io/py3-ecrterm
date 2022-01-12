@@ -54,6 +54,7 @@ class Transmission(object):
         if not self.is_master or self.is_waiting:
             # raise TransmissionException(
             #     'Can\'t send until transmisson is ready')
+            logger.warning('Sendind data in master mode')
             self.is_master = True
 
         else:
@@ -109,64 +110,3 @@ class Transmission(object):
         except Exception:
             self.history += self.last_history
             raise
-
-    def transmit_cancel(self, packet, history=None):
-        # we create a new history:
-        self.last_history = history or []
-        try:
-            ret = self._abort(packet, self.last_history)
-            self.history += self.last_history
-            return ret
-        except Exception:
-            self.history += self.last_history
-            raise
-
-    def _abort(self, packet, history):
-        """
-        Transmit the packet, go into slave mode and wait until the whole
-        sequence is finished.
-        """
-        # if not self.is_master or self.is_waiting:
-        #     raise TransmissionException('Can\'t send until transmisson is ready')
-        self.is_master = True
-        self.last = packet
-        try:
-            history += [(False, packet)]
-            logger.debug("> %r", packet)
-            success, response = self.transport.send(packet.serialize())
-            response = Packet.parse(response)
-            logger.debug("< %r", response)
-            history += [(True, response)]
-            # we sent the packet.
-            # now lets wait until we get master back.
-            while self.is_master:
-                self.is_master = self.handle_packet_response(
-                    self.last, response)
-                if self.is_master:
-                    break
-                # try:
-                #     print("ABO _>>>>>>>", success, response, self.is_master)
-                #     success, response = self.transport.receive(
-                #         self.actual_timeout)
-                #     response = Packet.parse(response)
-                #     logger.debug("< %r", response)
-                #     history += [(True, response)]
-                # except TransportLayerException:
-                #     print("EXCEPTION ------------->")
-                #     # some kind of timeout.
-                #     # if we are already master, we can bravely ignore this.
-                #     if self.is_master:
-                #         return TRANSMIT_OK
-                #     raise
-                if self.is_master and success:
-                    # we actually have to handle a last packet
-                    stay_master = self.handle_packet_response(
-                        packet, response)
-                    logger.warning('Is Master Read Ahead happened 1.')
-                    self.is_master = stay_master
-        except Exception as e:
-            logger.warning(e)
-            self.is_master = True
-            raise
-        self.is_master = True
-        return TRANSMIT_OK
