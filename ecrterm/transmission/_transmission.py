@@ -52,9 +52,12 @@ class Transmission(object):
         sequence is finished.
         """
         if not self.is_master or self.is_waiting:
-            raise TransmissionException(
-                'Can\'t send until transmisson is ready')
-        self.is_master = False
+            # raise TransmissionException(
+            #     'Can\'t send until transmisson is ready')
+            self.is_master = True
+
+        else:
+            self.is_master = False
         self.last = packet
         try:
             history += [(False, packet)]
@@ -65,6 +68,8 @@ class Transmission(object):
             history += [(True, response)]
             # we sent the packet.
             # now lets wait until we get master back.
+            if self.is_master:
+                self.is_master = self.handle_packet_response(self.last, response)
             while not self.is_master:
                 self.is_master = self.handle_packet_response(
                     self.last, response)
