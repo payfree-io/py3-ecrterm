@@ -121,8 +121,9 @@ class Transmission(object):
         Transmit the packet, go into slave mode and wait until the whole
         sequence is finished.
         """
-
-        self.is_master = False
+        # if not self.is_master or self.is_waiting:
+        #     raise TransmissionException('Can\'t send until transmisson is ready')
+        self.is_master = True
         self.last = packet
         try:
             history += [(False, packet)]
@@ -133,30 +134,33 @@ class Transmission(object):
             history += [(True, response)]
             # we sent the packet.
             # now lets wait until we get master back.
-            while not self.is_master:
+            while self.is_master:
                 self.is_master = self.handle_packet_response(
                     self.last, response)
                 if self.is_master:
                     break
-                try:
-                    success, response = self.transport.receive(
-                        self.actual_timeout)
-                    response = Packet.parse(response)
-                    logger.debug("< %r", response)
-                    history += [(True, response)]
-                except TransportLayerException:
-                    # some kind of timeout.
-                    # if we are already master, we can bravely ignore this.
-                    if self.is_master:
-                        return TRANSMIT_OK
-                    raise
+                # try:
+                #     print("ABO _>>>>>>>", success, response, self.is_master)
+                #     success, response = self.transport.receive(
+                #         self.actual_timeout)
+                #     response = Packet.parse(response)
+                #     logger.debug("< %r", response)
+                #     history += [(True, response)]
+                # except TransportLayerException:
+                #     print("EXCEPTION ------------->")
+                #     # some kind of timeout.
+                #     # if we are already master, we can bravely ignore this.
+                #     if self.is_master:
+                #         return TRANSMIT_OK
+                #     raise
                 if self.is_master and success:
                     # we actually have to handle a last packet
                     stay_master = self.handle_packet_response(
                         packet, response)
-                    logger.warning('Is Master Read Ahead happened.')
+                    logger.warning('Is Master Read Ahead happened 1.')
                     self.is_master = stay_master
         except Exception as e:
+            logger.warning(e)
             self.is_master = True
             raise
         self.is_master = True

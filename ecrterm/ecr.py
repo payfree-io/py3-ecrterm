@@ -244,7 +244,6 @@ class ECR(object):
             num = bytes("HR=", encoding='utf-8') + bytes.fromhex(len_reference_number_hex) + bytes(reference_number,
                                                                                                    encoding='utf-8')
             t1 = TLV(xe9={'x1f63': num})
-            print("ECR REF NUMBER", reference_number)
         packet = Authorisation(
             amount=amount_cent,  # in cents.
             currency_code=978,  # euro, only one that works, can be skipped.
