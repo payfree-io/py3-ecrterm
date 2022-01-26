@@ -51,14 +51,15 @@ class Transmission(object):
         Transmit the packet, go into slave mode and wait until the whole
         sequence is finished.
         """
-        if not self.is_master or self.is_waiting:
-            # raise TransmissionException(
-            #     'Can\'t send until transmisson is ready')
-            logger.warning('Sendind data in master mode')
-            self.is_master = True
-
-        else:
-            self.is_master = False
+        # if not self.is_master or self.is_waiting:
+        #     # raise TransmissionException(
+        #     #     'Can\'t send until transmisson is ready')
+        #     logger.warning('Sendind data in master mode')
+        #     self.is_master = True
+        # 
+        # else:
+        self.is_master = False
+        
         self.last = packet
         try:
             history += [(False, packet)]
