@@ -12,6 +12,7 @@ BITMAPS = {
     0x0C: (BCDField(length=3), 'time', 'Time'),
     0x0D: (BCDField(length=2), 'date_day', 'date, MM DD (see AA)'),
     0x0E: (BCDField(length=2), 'card_expire', 'expiry-date, YY MM'),
+    0x16: (ByteField(), 'timeout', 'binary time-out'),
     0x17: (
         BCDField(length=2), 'card_sequence_number', 'card sequence-number'),
     0x19: (
